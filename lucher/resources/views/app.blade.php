@@ -12,21 +12,28 @@ $site_title = "Arcade Games";
 $games = [
     [
         'id' => 2,
-        'title' => 'Змейка',
+        'title' => 'Snake',
         'description' => '',
         'thumbnail' => '',
         
     ],
     [
         'id' => 3,
-        'title' => 'Тетрис',
+        'title' => 'Tetris',
         'description' => '',
         'thumbnail' => '',
         
     ],
     [
         'id' => 4,
-        'title' => 'Пин-Понг',
+        'title' => 'Pin-pong',
+        'description' => '',
+        'thumbnail' => '',
+        
+    ],
+        [
+        'id' => 5,
+        'title' => 'Pac-Man',
         'description' => '',
         'thumbnail' => '',
         
