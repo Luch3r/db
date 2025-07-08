@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Генератор лабиринта Pac-Man</title>
+<style>
+  body {
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: sans-serif;
+  }
+  #game {
+    display: grid;
+    grid-template-columns: repeat(20, 20px);
+    grid-template-rows: repeat(20, 20px);
+    gap: 2px;
+    margin-top: 20px;
+  }
+  .cell {
+    width: 20px;
+    height: 20px;
+    background-color: #222;
+  }
+  .wall {
+    background-color: #444;
+  }
+  .dot {
+    background-color: yellow;
+    border-radius: 50%;
+    width: 8px;
+    height: 8px;
+    margin: auto;
+    margin-top:6px;
+  }
+  .pacman {
+    background-color: yellow;
+    border-radius: 50%;
+  }
+</style>
+</head>
+<body>
+
+<h2>Генерация лабиринта Pac-Man</h2>
+<button id="generateBtn">Создать новый лабиринт</button>
+<div id="score">Очки: 0</div>
+<div id="game"></div>
+
+<script>
+// Размеры поля
+const width = 20;
+const height = 20;
+
+// Карта
+let mapData = [];
+let cells = [];
+let pacmanPosition = {x:1,y:1};
+let score =0;
+
+// Создаем карту
+function initMap() {
+    mapData = [];
+    for(let y=0; y<height; y++) {
+        const row = [];
+        for(let x=0; x<width; x++) {
+            row.push(1); // по умолчанию все стены
+        }
+        mapData.push(row);
+    }
+}
+
+// Алгоритм DFS для генерации лабиринта
+function generateMaze() {
+    initMap();
+
+    // Стартовая точка
+    const startX=1, startY=1;
+
+    // Стек для обхода
+    const stack = [];
+    
+    // Помечаем стартовую ячейку как проход
+    mapData[startY][startX]=0;
+
+    stack.push({x:startX,y:startY});
+
+    const directions = [
+        {dx:2,dy:0},
+        {dx:-2,dy:0},
+        {dx:0,dy:2},
+        {dx:0,dy:-2}
+    ];
+
+    while(stack.length>0) {
+        const current=stack.pop();
+        // Перемешать направления
+        shuffleArray(directions);
+        for(const dir of directions) {
+            const nx=current.x+dir.dx;
+            const ny=current.y+dir.dy;
+
+            if(ny>0 && ny<height-1 && nx>0 && nx<width-1) {
+                if(mapData[ny][nx]===1) { // стена
+                    // Проверяем соседние клетки
+                    if(countNeighbors(nx,ny)==1) { 
+                        // Убираем стену между текущей и новой клеткой
+                        mapData[current.y+dir.dy/2][current.x+dir.dx/2]=0; 
+                        mapData[ny][nx]=0; // делаем проход
+                        stack.push({x:nx,y:ny});
+                    }
+                }
+            }
+        }
+    }
+
+}
+
+// Функция перемешивания массива (для рандомизации)
+function shuffleArray(array) {
+   for (let i=array.length-1; i>0; i--) {
+       const j=Math.floor(Math.random()*(i+1));
+       [array[i], array[j]]=[array[j], array[i]];
+   }
+}
+
+// Подсчет соседних проходов вокруг клетки (чтобы не соединять слишком много путей)
+function countNeighbors(x,y) {
+   let count=0;
+   if(x>1 && mapData[y][x-2]===0) count++;
+   if(x<width-2 && mapData[y][x+2]===0) count++;
+   if(y>1 && mapData[y-2][x]===0) count++;
+   if(y<height-2 && mapData[y+2][x]===0) count++;
+   return count;
+}
+
+// Создаем карту точек (еды)
+function placeDots() {
+   for(let y=0; y<height; y++) {
+       for(let x=0; x<width; x++) {
+           if(mapData[y][x]===0 && !(x===pacmanPosition.x && y===pacmanPosition.y)) {
+               // ставим точку с вероятностью
+               if(Math.random()<0.8) { 
+                   mapData[y][x]=2; // точка
+               }
+           }
+       }
+   }
+}
+
+// Создаем DOM элементы карты
+function createMap() {
+   const container=document.getElementById('game');
+   container.innerHTML='';
+   cells=[];
+   for(let y=0;y<height;y++) {
+       for(let x=0;x<width;x++) {
+           const div=document.createElement('div');
+           div.className='cell';
+           container.appendChild(div);
+           cells.push(div);
+       }
+   }
+}
+
+// Обновляем отображение карты
+function renderMap() {
+   for(let y=0;y<height;y++) {
+       for(let x=0;x<width;x++) {
+           const index=y*width+x;
+           const cellDiv=cells[index];
+           cellDiv.className='cell';
+
+           if(mapData[y][x]===1) { // стена
+               cellDiv.className='cell wall';
+               cellDiv.innerHTML='';
+           } else if(mapData[y][x]===2) { // точка
+               cellDiv.innerHTML='';
+               const dot=document.createElement('div');
+               dot.className='dot';
+               cellDiv.appendChild(dot);
+           } else { // пусто
+               cellDiv.innerHTML='';
+           }
+
+           if(x===pacmanPosition.x && y===pacmanPosition.y) {
+               cellDiv.className='cell pacman';
+           }
+       }
+   }
+
+   document.getElementById('score').innerText='Очки:'+score;
+}
+
+// Обработка движения Pac-Man стрелками
+document.addEventListener('keydown', (e)=>{
+   let nx=pacmanPosition.x;
+   let ny=pacmanPosition.y;
+
+   if(e.key==='ArrowUp') ny--;
+   else if(e.key==='ArrowDown') ny++;
+   else if(e.key==='ArrowLeft') nx--;
+   else if(e.key==='ArrowRight') nx++;
+
+   if(ny>=0 && ny<height && nx>=0 && nx<width){
+       if(mapData[ny][nx]!==1){ // не стена
+           pacmanPosition.x=nx;
+           pacmanPosition.y=ny;
+
+           // если есть точка - съедаем её
+           if(mapData[ny][nx]===2){
+               mapData[ny][nx]=0;
+               score++;
+               document.getElementById('score').innerText='Очки:'+score;
+           }
+
+           renderMap();
+       }
+   }
+
+});
+
+// Генерируем новый лабиринт по кнопке
+document.getElementById('generateBtn').addEventListener('click', ()=>{
+   score=0;
+   document.getElementById('score').innerText='Очки:'+score;
+
+   generateMaze();
+   
+   // Расположим Pac-Man в стартовой позиции (например, в левом верхнем проходе)
+   pacmanPosition={x:1,y:1};
+
+   placeDots();
+   
+   createMap();
+   
+   renderMap();
+});
+
+// Инициализация при загрузке страницы
+generateMaze();
+placeDots();
+createMap();
+renderMap();
+
+</script>
+
+</body>
+</html>
