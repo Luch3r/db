@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Пинг-Понг</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            font-family: 'Arial', sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 800px;
+            text-align: center;
+        }
+        
+        #gameCanvas {
+            background-color: #000;
+            border: 2px solid #fff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+        
+        .score {
+            display: flex;
+            justify-content: space-between;
+            width: 800px;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+        
+        .game-over h2 {
+            color: #ff4444;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="score">
+            <div id="player1Score">Игрок 1: 0</div>
+            <div id="player2Score">Игрок 2: 0</div>
+        </div>
+        
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        
+        <div class="controls">
+            <p>Управление:</p>
+            <p>Игрок 1: W (вверх), S (вниз)</p>
+            <p>Игрок 2: Стрелка вверх, Стрелка вниз</p>
+        </div>
+        
+        <button id="startButton">Старт</button>
+        
+        <div id="gameOver" class="game-over">
+            <h2>Игра окончена!</h2>
+            <p id="winnerText"></p>
+            <button id="restartButton">Играть снова</button>
+        </div>
+    </div>
+
+    <script>
+        // Получаем элементы DOM
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const player1ScoreElement = document.getElementById('player1Score');
+        const player2ScoreElement = document.getElementById('player2Score');
+        const startButton = document.getElementById('startButton');
+        const gameOverElement = document.getElementById('gameOver');
+        const winnerTextElement = document.getElementById('winnerText');
+        const restartButton = document.getElementById('restartButton');
+        
+        // Константы игры
+        const PADDLE_WIDTH = 10;
+        const PADDLE_HEIGHT = 100;
+        const BALL_SIZE = 10;
+        const PADDLE_SPEED = 8;
+        const WINNING_SCORE = 5;
+        
+        // Игровые объекты
+        let player1 = {
+            x: 20,
+            y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            score: 0,
+            speed: PADDLE_SPEED
+        };
+        
+        let player2 = {
+            x: canvas.width - 20 - PADDLE_WIDTH,
+            y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            score: 0,
+            speed: PADDLE_SPEED
+        };
+        
+        let ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: BALL_SIZE,
+            speedX: 5,
+            speedY: 5
+        };
+        
+        // Состояние игры
+        let gameRunning = false;
+        let keys = {};
+        
+        // Слушатели событий
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', restartGame);
+        
+        // Функция начала игры
+        function startGame() {
+            if (!gameRunning) {
+                gameRunning = true;
+                startButton.textContent = 'Пауза';
+                gameLoop();
+            } else {
+                gameRunning = false;
+                startButton.textContent = 'Продолжить';
+            }
+        }
+        
+        // Функция перезапуска игры
+        function restartGame() {
+            player1.score = 0;
+            player2.score = 0;
+            player1ScoreElement.textContent = 'Игрок 1: 0';
+            player2ScoreElement.textContent = 'Игрок 2: 0';
+            resetBall();
+            gameOverElement.style.display = 'none';
+            gameRunning = true;
+            startButton.textContent = 'Пауза';
+            gameLoop();
+        }
+        
+        // Функция сброса мяча
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.speedX = Math.random() > 0.5 ? 5 : -5;
+            ball.speedY = Math.random() * 6 - 3;
+        }
+        
+        // Функция обновления игры
+        function update() {
+            // Движение игрока 1
+            if (keys['w'] && player1.y > 0) {
+                player1.y -= player1.speed;
+            }
+            if (keys['s'] && player1.y + player1.height < canvas.height) {
+                player1.y += player1.speed;
+            }
+            
+            // Движение игрока 2
+            if (keys['ArrowUp'] && player2.y > 0) {
+                player2.y -= player2.speed;
+            }
+            if (keys['ArrowDown'] && player2.y + player2.height < canvas.height) {
+                player2.y += player2.speed;
+            }
+            
+            // Движение мяча
+            ball.x += ball.speedX;
+            ball.y += ball.speedY;
+            
+            // Отскок от верхней и нижней стенок
+            if (ball.y - ball.size < 0 || ball.y + ball.size > canvas.height) {
+                ball.speedY = -ball.speedY;
+            }
+            
+            // Проверка столкновения с платформами
+            // Игрок 1
+            if (
+                ball.x - ball.size < player1.x + player1.width &&
+                ball.y > player1.y &&
+                ball.y < player1.y + player1.height
+            ) {
+                ball.speedX = Math.abs(ball.speedX); // Движение вправо
+                // Увеличиваем угол отскока в зависимости от места удара
+                let hitPoint = (ball.y - player1.y) / player1.height;
+                ball.speedY = 10 * (hitPoint - 0.5);
+            }
+            
+            // Игрок 2
+            if (
+                ball.x + ball.size > player2.x &&
+                ball.y > player2.y &&
+                ball.y < player2.y + player2.height
+            ) {
+                ball.speedX = -Math.abs(ball.speedX); // Движение влево
+                // Увеличиваем угол отскока в зависимости от места удара
+                let hitPoint = (ball.y - player2.y) / player2.height;
+                ball.speedY = 10 * (hitPoint - 0.5);
+            }
+            
+            // Проверка забития гола
+            if (ball.x < 0) {
+                player2.score++;
+                player2ScoreElement.textContent = `Игрок 2: ${player2.score}`;
+                checkGameOver();
+                resetBall();
+            }
+            
+            if (ball.x > canvas.width) {
+                player1.score++;
+                player1ScoreElement.textContent = `Игрок 1: ${player1.score}`;
+                checkGameOver();
+                resetBall();
+            }
+        }
+        
+        // Функция проверки окончания игры
+        function checkGameOver() {
+            if (player1.score >= WINNING_SCORE) {
+                endGame("Игрок 1 победил!");
+            } else if (player2.score >= WINNING_SCORE) {
+                endGame("Игрок 2 победил!");
+            }
+        }
+        
+        // Функция завершения игры
+        function endGame(message) {
+            gameRunning = false;
+            winnerTextElement.textContent = message;
+            gameOverElement.style.display = 'block';
+            startButton.textContent = 'Старт';
+        }
+        
+        // Функция отрисовки игры
+        function draw() {
+            // Очистка холста
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Рисуем центральную линию
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Рисуем платформы
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(player1.x, player1.y, player1.width, player1.height);
+            ctx.fillRect(player2.x, player2.y, player2.width, player2.height);
+            
+            // Рисуем мяч
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Рисуем счет
+            ctx.font = '32px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${player1.score} : ${player2.score}`, canvas.width / 2, 40);
+        }
+        
+        // Игровой цикл
+        function gameLoop() {
+            if (gameRunning) {
+                update();
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        // Начальная отрисовка
+        draw();
+    </script>
+</body>
+</html>
